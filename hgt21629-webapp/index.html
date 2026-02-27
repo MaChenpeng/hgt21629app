@@ -1,0 +1,333 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>HG/T21629-2021 管架材料统计系统</title>
+    <link rel="stylesheet" href="css/style.css">
+    <!-- SheetJS for Excel processing -->
+    <script src="https://cdn.sheetjs.com/xlsx-0.20.1/package/dist/xlsx.full.min.js"></script>
+    <!-- Icons -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.2/css/all.min.css">
+</head>
+<body>
+    <div class="app-container">
+        <!-- 头部 -->
+        <header class="header">
+            <h1><i class="fas fa-project-diagram"></i> HG/T21629-2021 管架材料统计系统</h1>
+            <p class="subtitle">根据化工行业标准，自动统计管架详细材料清单</p>
+        </header>
+
+        <!-- 统计概览 -->
+        <div class="stats-grid" id="statsSection" style="display: none;">
+            <div class="stat-card success">
+                <div class="stat-value" id="validCount">0</div>
+                <div class="stat-label">有效管架</div>
+            </div>
+            <div class="stat-card warning">
+                <div class="stat-value" id="invalidCount">0</div>
+                <div class="stat-label">待确认项</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-value" id="totalMaterials">0</div>
+                <div class="stat-label">材料种类</div>
+            </div>
+            <div class="stat-card info">
+                <div class="stat-value" id="totalQuantity">0</div>
+                <div class="stat-label">总件数</div>
+            </div>
+        </div>
+
+        <!-- 输入方式选择标签页 -->
+        <div class="card" id="inputCard">
+            <div class="tabs">
+                <button class="tab active" data-input-tab="file">
+                    <i class="fas fa-cloud-upload-alt"></i> 文件导入
+                </button>
+                <button class="tab" data-input-tab="table">
+                    <i class="fas fa-table"></i> 表格输入
+                </button>
+                <button class="tab" data-input-tab="text">
+                    <i class="fas fa-align-left"></i> 文本导入
+                </button>
+            </div>
+
+            <!-- 文件导入面板 -->
+            <div class="input-panel active" id="filePanel">
+                <div class="card-header">
+                    <h2><i class="fas fa-cloud-upload-alt"></i> 导入支吊架清单</h2>
+                </div>
+                <div class="card-body">
+                    <div class="upload-zone" id="uploadZone">
+                    <div class="icon">
+                        <i class="fas fa-file-import"></i>
+                    </div>
+                    <h3>拖拽文件到此处，或点击选择文件</h3>
+                    <p>支持多种格式：Excel (.xlsx, .xls)、CSV、TXT</p>
+                    <div class="file-types">
+                        <span class="file-type-badge"><i class="fas fa-file-excel"></i> Excel</span>
+                        <span class="file-type-badge"><i class="fas fa-file-csv"></i> CSV</span>
+                        <span class="file-type-badge"><i class="fas fa-file-alt"></i> TXT</span>
+                    </div>
+                    <input type="file" id="fileInput" accept=".xlsx,.xls,.csv,.txt" style="display: none;" multiple>
+                </div>
+
+                <div class="file-list" id="fileList"></div>
+
+                <div class="flex flex-between mt-16">
+                    <button class="btn btn-outline" id="sampleBtn">
+                        <i class="fas fa-download"></i> 下载示例文件
+                    </button>
+                    <button class="btn btn-primary" id="processBtn" disabled>
+                        <i class="fas fa-cogs"></i> 开始统计
+                    </button>
+                </div>
+
+                <div class="help-section">
+                    <h4><i class="fas fa-info-circle"></i> 支持的文件格式说明</h4>
+                    <ul>
+                        <li>Excel 文件：.xlsx 或 .xls 格式，支持多 Sheet</li>
+                        <li>CSV 文件：逗号分隔的文本文件</li>
+                        <li>TXT 文件：Tab、逗号或竖线分隔的文本文件</li>
+                    </ul>
+                    <div class="code-example">
+编号,名称,数量,备注
+A1-1-A-200,U形螺栓,10,
+D4-1-B-100-300,悬臂架,5,
+E1-A-150-S,导向架,8,
+                    </div>
+                </div>
+            </div>
+            </div>
+
+            <!-- 表格输入面板 -->
+            <div class="input-panel" id="tablePanel">
+                <div class="card-header">
+                    <h2><i class="fas fa-table"></i> 表格输入</h2>
+                    <button class="btn btn-success btn-sm" id="addRowBtn">
+                        <i class="fas fa-plus"></i> 添加行
+                    </button>
+                </div>
+                <div class="card-body">
+                    <div class="table-container">
+                        <table class="data-table" id="manualTable">
+                            <thead>
+                                <tr>
+                                    <th class="number">序号</th>
+                                    <th>管架编号 <span class="text-danger">*</span></th>
+                                    <th>名称</th>
+                                    <th class="quantity">数量</th>
+                                    <th>管径</th>
+                                    <th>备注</th>
+                                    <th class="actions">操作</th>
+                                </tr>
+                            </thead>
+                            <tbody id="manualTableBody">
+                                <tr class="empty-row">
+                                    <td colspan="7" class="text-center" style="padding: 32px; color: var(--text-secondary);">
+                                        <i class="fas fa-inbox" style="font-size: 24px; display: block; margin-bottom: 8px;"></i>
+                                        暂无数据，点击"添加行"开始输入
+                                    </td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+                    <div class="flex flex-between mt-16">
+                        <button class="btn btn-outline" id="clearTableBtn">
+                            <i class="fas fa-trash-alt"></i> 清空表格
+                        </button>
+                        <button class="btn btn-primary" id="processTableBtn" disabled>
+                            <i class="fas fa-cogs"></i> 开始统计
+                        </button>
+                    </div>
+                    <div class="help-section">
+                        <h4><i class="fas fa-lightbulb"></i> 使用提示</h4>
+                        <ul>
+                            <li>管架编号为必填项，格式如：A1-1-A-200、D4-1-B-100-200</li>
+                            <li>数量默认为 1，可直接在单元格中修改</li>
+                            <li>支持 Tab 键在单元格间快速跳转</li>
+                            <li>按 Enter 键可快速添加新行</li>
+                        </ul>
+                    </div>
+                </div>
+            </div>
+
+            <!-- 文本导入面板 -->
+            <div class="input-panel" id="textPanel">
+                <div class="card-header">
+                    <h2><i class="fas fa-align-left"></i> 文本导入</h2>
+                </div>
+                <div class="card-body">
+                    <div class="form-group">
+                        <label class="form-label" style="display: block; margin-bottom: 8px; font-weight: 500;">
+                            粘贴支吊架数据（每行一个）：
+                        </label>
+                        <textarea 
+                            id="textInput" 
+                            class="form-textarea" 
+                            placeholder="支持以下格式：&#10;编号,数量&#10;或&#10;编号 数量&#10;或&#10;仅编号（数量默认为1）&#10;&#10;示例：&#10;A1-1-A-200,10&#10;D4-1-A-100-200 8&#10;G1-A"
+                            style="width: 100%; min-height: 200px; padding: 12px; border: 1px solid var(--border-color); border-radius: var(--radius); font-family: monospace; font-size: 14px; resize: vertical;"
+                        ></textarea>
+                    </div>
+                    <div class="flex flex-between mt-16">
+                        <button class="btn btn-outline" id="clearTextBtn">
+                            <i class="fas fa-eraser"></i> 清空
+                        </button>
+                        <button class="btn btn-primary" id="processTextBtn" disabled>
+                            <i class="fas fa-cogs"></i> 开始统计
+                        </button>
+                    </div>
+                    <div class="help-section">
+                        <h4><i class="fas fa-info-circle"></i> 格式说明</h4>
+                        <ul>
+                            <li><strong>格式1：</strong>编号,数量（如：A1-1-A-200,10）</li>
+                            <li><strong>格式2：</strong>编号 数量（如：A1-1-A-200 10）</li>
+                            <li><strong>格式3：</strong>仅编号（数量默认为1）</li>
+                            <li>支持逗号、空格、Tab 作为分隔符</li>
+                            <li>空行将被自动忽略</li>
+                        </ul>
+                        <div class="code-example">
+A1-1-A-200,10
+D4-1-A-100-200 8
+G1-A
+E1-A-200-S,12
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- 数据预览和结果区域 -->
+        <div class="card" id="resultCard" style="display: none;">
+            <div class="tabs">
+                <button class="tab active" data-tab="materials">
+                    <i class="fas fa-list"></i> 材料清单
+                </button>
+                <button class="tab" data-tab="supports">
+                    <i class="fas fa-clipboard-list"></i> 管架明细
+                </button>
+                <button class="tab" data-tab="invalid" id="invalidTab" style="display: none;">
+                    <i class="fas fa-exclamation-triangle"></i> 待确认项
+                </button>
+            </div>
+
+            <!-- 材料清单 -->
+            <div class="tab-content active" id="materialsTab">
+                <div class="card-header">
+                    <h2><i class="fas fa-list-ul"></i> 材料清单汇总</h2>
+                    <div class="flex gap-8">
+                        <button class="btn btn-success btn-sm" id="exportExcelBtn">
+                            <i class="fas fa-file-excel"></i> 导出 Excel
+                        </button>
+                        <button class="btn btn-outline btn-sm" id="exportCsvBtn">
+                            <i class="fas fa-file-csv"></i> 导出 CSV
+                        </button>
+                    </div>
+                </div>
+                <div class="card-body">
+                    <div class="table-container" id="materialsTableContainer">
+                        <div class="empty-state">
+                            <div class="icon"><i class="fas fa-inbox"></i></div>
+                            <h3>暂无数据</h3>
+                            <p>请先导入支吊架清单文件</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- 管架明细 -->
+            <div class="tab-content" id="supportsTab">
+                <div class="card-header">
+                    <h2><i class="fas fa-clipboard-check"></i> 管架明细列表</h2>
+                </div>
+                <div class="card-body">
+                    <div class="table-container" id="supportsTableContainer">
+                        <div class="empty-state">
+                            <div class="icon"><i class="fas fa-inbox"></i></div>
+                            <h3>暂无数据</h3>
+                            <p>请先导入支吊架清单文件</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- 待确认项 -->
+            <div class="tab-content" id="invalidTab">
+                <div class="card-header">
+                    <h2><i class="fas fa-exclamation-circle"></i> 无法识别的管架编号</h2>
+                </div>
+                <div class="card-body">
+                    <div class="alert alert-warning">
+                        <i class="fas fa-info-circle"></i>
+                        以下管架编号格式不正确或不在 HG/T21629-2021 标准范围内，请检查后重新导入。
+                    </div>
+                    <div class="table-container" id="invalidTableContainer">
+                        <div class="empty-state">
+                            <div class="icon"><i class="fas fa-check-circle"></i></div>
+                            <h3>全部识别成功</h3>
+                            <p>没有无法识别的管架编号</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- 帮助信息卡片 -->
+        <div class="card">
+            <div class="card-header">
+                <h2><i class="fas fa-book"></i> 管架编号规则说明</h2>
+            </div>
+            <div class="card-body">
+                <div class="table-container">
+                    <table class="data-table">
+                        <thead>
+                            <tr>
+                                <th>编号格式</th>
+                                <th>说明</th>
+                                <th>示例</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <tr>
+                                <td><code>A1-1-A-200</code></td>
+                                <td>A1型U形螺栓，序列1，载荷A，DN200</td>
+                                <td>标准U形螺栓</td>
+                            </tr>
+                            <tr>
+                                <td><code>D4-1-A-100-200</code></td>
+                                <td>D4悬臂架，序列1，载荷A，DN100，长度200</td>
+                                <td>悬臂架</td>
+                            </tr>
+                            <tr>
+                                <td><code>E1-A-200-S</code></td>
+                                <td>E1导向架，载荷A，DN200，S=滑动型</td>
+                                <td>滑动导向架</td>
+                            </tr>
+                            <tr>
+                                <td><code>F2-100-50-C1-500</code></td>
+                                <td>F2支腿，大小头DN100/50，C1级，长500</td>
+                                <td>耳轴支腿</td>
+                            </tr>
+                            <tr>
+                                <td><code>G1-A</code></td>
+                                <td>G1地面锚板，载荷A</td>
+                                <td>地面锚板</td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+
+        <!-- 页脚 -->
+        <footer style="text-align: center; padding: 24px; color: var(--text-secondary); font-size: 12px;">
+            <p>基于 HG/T 21629-2021《管架标准图》开发 | 数据仅供参考，请以标准图集为准</p>
+        </footer>
+    </div>
+
+    <!-- 加载脚本 -->
+    <script src="js/supportData.js"></script>
+    <script src="js/fileHandler.js"></script>
+    <script src="js/app.js"></script>
+</body>
+</html>
